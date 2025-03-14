@@ -1,18 +1,31 @@
-function xdot = dvpH(x,ux,uy,t,par)
+function xdot = dvpH(x, ux, uy, params)
+% dvpH - Computes the time derivative of the state vector x
+%
+% Syntax: xdot = dvpH(x, ux, uy, params)
+%
+% Inputs:
+%   x      - State vector
+%   ux     - Input flow rate 1
+%   uy     - Input flow rate 2
+%   params - Structure containing parameters
+%
+% Outputs:
+%   xdot   - Time derivative of the state vector x
 
-xd(1) = (ux+par(1)+uy-(par(9)*(sqrt(x(1)-par(10)))))/par(3); 
+  dx.rh = (ux + params.flow.Q2 + uy - (params.constants.c * (sqrt(x.rh - params.geometry.h0)))) / params.geometry.Ar;
 
-xd(2) = ((ux*(par(11)-x(2)))+(par(1)*(par(12)-x(2)))+(uy*(par(13)-x(2))))/(par(4)); 
+  dx.wa = ((ux * (params.concentration.wa1 - x.wa)) + (params.flow.Q2 * (params.concentration.wa2 - x.wa)) + (uy * (params.concentration.wa3 - x.wa))) / params.geometry.Vr;
 
-xd(3) = ((ux*(par(14)-x(3)))+(par(1)*(par(15)-x(3)))+(uy*(par(16)-x(3))))/(par(4));
+  dx.wb = ((ux * (params.concentration.wb1 - x.wb)) + (params.flow.Q2 * (params.concentration.wb2 - x.wb)) + (uy * (params.concentration.wb3 - x.wb))) / params.geometry.Vr;
 
-xd(4) = -ux/par(5); 
+  dx.hta = -ux / params.geometry.Ata;
 
-xd(5) = -par(1)/par(6); 
+  dx.htt = -params.flow.Q2 / params.geometry.Att;
 
-xd(6) = -uy/par(7); 
+  dx.htb = -uy / params.geometry.Atb;
 
-xd(7) = par(2)/par(8); 
+  dx.htc = params.constants.c / params.geometry.Atc;
 
-xdot=xd';
+  xdot = dx';
+  
 end

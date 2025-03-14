@@ -1,93 +1,63 @@
 clearvars; close all; clc
 
+% Load setup parameters
 setup_pH;
 
-h = 10;
-
-t0 = h;
-tm = 50;
-tf = 60*tm;
-t = t0:h:tf;
+step = 10;
+t0 = step;
+tf_min = 50;
+tf_seg = 60 * tf_min;
+t = t0:step:tf_seg;
 
 Ts = 40;
-T = t(1:Ts/h:end);
+steps_in_sample = Ts/step;
+T = t(1:steps_in_sample:end);
 
-Q1 = 3*ones(1,length(T)); 
+tstart = 600;
 
-Q3 = 2*ones(1,length(T)); 
-u = zeros(1,length(T)); 
+Q1 = 3 * ones(1, length(t));
+Q3 = 2 * ones(1, length(t));
 
-xc = zeros(length(x0),length(t)); 
-pHc = zeros(1,length(t));
+xc = repmat(x0, 1, length(t));
+pHc = zeros(1, length(t));
 
-x = zeros(length(x0),length(T));
-y1 = zeros(1,length(T));
-y2 = y1;
-y3 = y1;
-y4 = y1;
-y5 = y1;
-pH = zeros(1,length(T));
+xd = repmat(x0, 1, length(T));
+pHd = zeros(1, length(T));
 
-x(:,1) = x0;
-
-for k = 2:600/Ts+1
-    kc = (k-1)*Ts/h + 1;
-    [x(:,k),pH(k),xc(:,kc:kc+Ts/h-1),pHc(kc:kc+Ts/h-1)] = simrk_pH(x(:,k-1),Q1(k),Q3(k),h,t(kc),par,Kas,Ts);
-
+for k = 2:tstart/Ts+1
+    kc = (k - 1) * steps_in_sample + 1;
+    [xd(k), pHd(k), xc(kc:kc+steps_in_sample-1), pHc(kc:kc+steps_in_sample-1)] = simrk_pH(xc(kc-1), Q1(kc-1), Q3(kc-1), step, Ts, params, Kas);
 end
 
-for k = 6:600/Ts+1
-    y1(k) = 0.7770*y1(k-1) + 0.6177*u(k-1); 
-    y2(k) = 0.8521*y2(k-1) + 0.6234*u(k-1) -0.4327*u(k-3) + 0.2190*u(k-4);
-    y3(k) = 1.4042*y3(k-1) -0.4983*y3(k-2) +0.3569*u(k-1) -0.5219*u(k-4) +0.4256*u(k-5);
-    y4(k) = 0.8888*y4(k-1) +0.5221*u(k-1) -0.4247*u(k-4) +0.2106*u(k-5);
-    y5(k) = 1.3316*y5(k-1) -0.4182*y5(k-2) +0.2399*u(k-1);
-end
+k_test_start = k;
 
-ini = k;
-
-u1 = Q1;
 u2 = Q3;
 
-du2 = zeros(size(Q3));
+du2 = zeros(size(u2));
+du2(k_test_start:end) = 0.5 * ones(1, length(T) - k_test_start + 1);
 
-du2(ini:end) = 0.5*ones(1,length(T)-ini+1); 
-u2 = Q3 + du2;
+u2 = u2 + du2;
 
-for k=ini:length(T)
-    kc = (k-1)*Ts/h + 1;
-    [x(:,k),pH(k),xc(:,kc:kc+Ts/h-1),pHc(kc:kc+Ts/h-1)] = simrk_pH(x(:,k-1),u1(k),u2(k),h,t(kc),par,Kas,Ts);
+for k = k_test_start+1:length(T)
+    kc = (k - 1) * steps_in_sample + 1;
+    [xd(k), pHd(k), xc(kc:kc+steps_in_sample-1), pHc(kc:kc+steps_in_sample-1)] = simrk_pH(xc(kc-1), Q1(kc-1), Q3(kc-1), step, Ts, params, Kas);
 end
 
-u = du2;
-for k = ini:length(T)
-   y1(k) = 0.7770*y1(k-1) + 0.6177*u(k-1); 
-    y2(k) = 0.8521*y2(k-1) + 0.6234*u(k-1) -0.4327*u(k-3) + 0.2190*u(k-4);
-    y3(k) = 1.4042*y3(k-1) -0.4983*y3(k-2) +0.3569*u(k-1) -0.5219*u(k-4) +0.4256*u(k-5);
-    y4(k) = 0.8888*y4(k-1) +0.5221*u(k-1) -0.4247*u(k-4) +0.2106*u(k-5);
-    y5(k) = 1.3316*y5(k-1) -0.4182*y5(k-2) +0.2399*u(k-1);
-end
+figure;
+subplot(3,1,1);
+plot(t, pHc, 'b', 'DisplayName', 'pHc');
+hold on;
+plot(T, pHd, 'r', 'LineWidth', 2, 'DisplayName', 'pHd');
+xlabel('Time (s)');
+ylabel('pH');
+title('Simulated pH');
+legend;
+grid on;
 
-pplot = 1;
-if pplot == 1
-
-   figure(1)
-   yyaxis left
-   plot(t/60,pHc,'k',(T+Ts)/60,pH,'b*');
-   set(gca,'FontSize',16)
-   ylabel('pH')
-   yyaxis right
-   plot((T+Ts)/60,u2,'r');
-   set(gca,'FontSize',16)
-   xlabel('t (min)')
-   ylabel('vazao de base (mL/seg)')
-   axis([0 (t(end)+h)/60 0 12])
-end
-
-figure(2)
-plot((T+Ts)/60,pH,'b',T/60,y1+5,'k+',T/60,y2+5,'r+',T/60,y3+5,'g+',T/60,y4+5,'b+',T/60,y5+5,'c+');
-axis([9 T(end)/60 4.9 6.5])
-set(gca,'FontSize',16)
-ylabel('pH')
-xlabel('t (min)')
-
+subplot(3,1,3);
+plot(t, u2, 'm', 'DisplayName', 'u2');
+xlabel('Time (s)');
+ylabel('Flow rate u2');
+title('Flow rate u2');
+legend;
+grid on;
